@@ -1,0 +1,25 @@
+{
+    "name": "public-api-mcp",
+    "version": "1.0.0",
+    "description": "A project implementing a chatbot service operates with Korean government's public API service, through MCP (Model-Context Protocol).",
+    "license": "ISC",
+    "author": "Doyoung Kim",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.17.4",
+        "fast-xml-parser": "^5.2.5",
+        "zod": "^3.25.76"
+    },
+    "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "jest": "^30.1.2",
+        "node": "^22.19.0",
+        "ts-jest": "^29.4.1",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.2"
+    }
+}

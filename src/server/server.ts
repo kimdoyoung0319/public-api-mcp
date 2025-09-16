@@ -3,13 +3,12 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { PublicApiAdapter, PublicApiResponseType, PublicApiResponseTypeSchema } from "./adapter.js";
 import { ServerOptions } from "@modelcontextprotocol/sdk/server/index.js";
 import { ConnectionConfig } from "mysql";
-import { z, ZodRawShape, ZodTypeAny } from "zod";
-import { request } from "http";
+import { z, ZodRawShape } from "zod";
 
 /**
  * Additional options for public API MCP server.
  */
-interface PublicApiMcpServerOptions extends ServerOptions {
+export interface PublicApiMcpServerOptions extends ServerOptions {
     /**
      * Should the server use DB to discover tools?
      */
@@ -85,7 +84,7 @@ type PublicApiEntry = z.infer<typeof PublicApiEntrySchema>;
 /**
  * A MCP Server that additionally provides tools to access public API.
  */
-class PublicApiMcpServer extends McpServer {
+export class PublicApiMcpServer extends McpServer {
     private static _publicApiAdapter = new PublicApiAdapter();
     // FIXME: Mapping an API entry to a tool might not be a good idea. We need to come up with a better idea to handle
     //        vast number of APIs so that the LLM is able to handle them. Currently, the server maps an API to exactly

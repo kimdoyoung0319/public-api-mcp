@@ -158,21 +158,21 @@ const OUTPUT_SCHEMA = z.object({
 
 test("Converting correct JSON data without output schema must succeed", () => {
     const adapter = new PublicApiAdapter();
-    const result = adapter.convert(CORRECT_JSON_RESPONSE, PublicApiResponseType.JSON);
+    const result = adapter.convert(CORRECT_JSON_RESPONSE, "JSON");
 
     expect(result).toEqual(EXPECTED_JSON);
 });
 
 test("Converting correct XML data without output schema must succeed", () => {
     const adapter = new PublicApiAdapter();
-    const result = adapter.convert(CORRECT_XML_RESPONSE, PublicApiResponseType.XML);
+    const result = adapter.convert(CORRECT_XML_RESPONSE, "XML");
 
     expect(result).toEqual(EXPECTED_XML);
 });
 
 test("Converting correct JSON data with output schema must succeed", () => {
     const adapter = new PublicApiAdapter();
-    const result = adapter.convert(CORRECT_JSON_RESPONSE, PublicApiResponseType.JSON, OUTPUT_SCHEMA);
+    const result = adapter.convert(CORRECT_JSON_RESPONSE, "JSON", OUTPUT_SCHEMA);
 
     expect(result).toEqual({
         content: [],
@@ -182,7 +182,7 @@ test("Converting correct JSON data with output schema must succeed", () => {
 
 test("Converting correct XML data with output schema must succeed", () => {
     const adapter = new PublicApiAdapter();
-    const result = adapter.convert(CORRECT_XML_RESPONSE, PublicApiResponseType.XML, OUTPUT_SCHEMA);
+    const result = adapter.convert(CORRECT_XML_RESPONSE, "XML", OUTPUT_SCHEMA);
 
     expect(result).toEqual({
         content: [],
@@ -194,7 +194,7 @@ test("Converting incorrect JSON data without output schema must throw an excepti
     const adapter = new PublicApiAdapter();
 
     expect(() => {
-        adapter.convert(INCORRECT_JSON_RESPONSE, PublicApiResponseType.JSON);
+        adapter.convert(INCORRECT_JSON_RESPONSE, "JSON");
     }).toThrow();
 });
 
@@ -202,6 +202,6 @@ test("Converting incorrect XML data with output schema must throw an exception",
     const adapter = new PublicApiAdapter();
 
     expect(() => {
-        adapter.convert(INCORRECT_JSON_RESPONSE, PublicApiResponseType.JSON, OUTPUT_SCHEMA);
+        adapter.convert(INCORRECT_JSON_RESPONSE, "JSON", OUTPUT_SCHEMA);
     }).toThrow();
 });

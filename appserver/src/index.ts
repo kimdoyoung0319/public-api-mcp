@@ -19,7 +19,7 @@ app.post("/chat/query", (req, res) => {
     res.json({
         messages: [
             { role: "user", content: text },
-            { role: "assistant", content: `요청을 받았습니다: "${text}" (더미 응답)` },
+            { role: "assistant", content: `요청을 받았습니다: "${text}"` },
         ],
     });
 });

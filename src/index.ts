@@ -6,7 +6,7 @@ import { PublicApiMcpHost } from "./mcp/host.js";
 const app = express();
 const port = 3000;
 const host = new PublicApiMcpHost({
-    model: "gpt-oss:20b",
+    model: "gpt-oss:20b-cloud",
 });
 
 app.use(express.text());

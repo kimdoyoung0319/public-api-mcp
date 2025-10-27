@@ -1,6 +1,8 @@
-# 삼성 SDS 클라우드기반 공공IT서비스 - MCP 호스트 및 서버
+# 삼성 SDS 클라우드기반 공공IT서비스
 
-## 의존
+## MCP 호스트 및 서버
+
+### 의존성
 
 해당 서버를 구동하기 위해서는 다음이 필요합니다.
 
@@ -15,7 +17,7 @@
 -   `npm 11.4.2` 혹은 더 최신의 버전
 -   `node v24.3.0` 혹은 더 최신의 버전
 
-## 서버 구동
+### 서버 구동
 
 서버를 실행하기 이전에 Ollama가 실행중인지 확인해야 합니다.
 
@@ -33,7 +35,7 @@ PUBLIC_API_AUTH_KEY={your_authentication_key} npm run start
 
 `your_authentication_key`에는 [공공데이터포털](http://www.data.go.kr)에서 발급받은 인증 키를 입력해야 하며, 해당 인증 키를 발급받은 계정은 반드시 필요한 API에 대한 사용신청과 승인이 되어있어햐 합니다.
 
-## 디렉터리 구조
+### 디렉터리 구조
 
 -   `src/mcp`
 
@@ -68,7 +70,7 @@ PUBLIC_API_AUTH_KEY={your_authentication_key} npm run start
 -   `src/utils.ts`
     -   유틸리티 클래스, 함수, 인터페이스가 위치합니다.
 
-## API 명세
+### API 명세
 
 `root`는 전체 서비스의 루트 URL입니다. 로컬에서 테스트하는 경우, 3000번 포트를 사용하므로 `http://localhost:3000`를
 사용합니다. `uuid`는 해당 대화 세션에 대한 UUID (Universally Unique IDentifier)입니다.
@@ -92,7 +94,7 @@ PUBLIC_API_AUTH_KEY={your_authentication_key} npm run start
 
     -   해당 대화 세션의 맥락(context)에서 모델에 응답 생성을 요청합니다.
 
-## TODO
+### TODO
 
 -   REST API 요청/응답 스키마 정의
 -   Ollama 로컬 모델이 아닌 원격 클라우드 모델을 이용해 응답 생성이 가능한지 테스트

@@ -1,4 +1,4 @@
-import { Ollama, ToolCall, Message, Tool as OllamaTool, AbortableAsyncIterator } from "ollama";
+import { Ollama, ToolCall, Message, Tool as OllamaTool, AbortableAsyncIterator, ChatResponse } from "ollama";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { env } from "node:process";
@@ -6,9 +6,7 @@ import { Logger } from "@origranot/ts-logger";
 
 const SYSTEM_PROMPT: Message = {
     role: "system",
-    content:
-        "You are an AI agent that helps people to use Korean government's public API. Prefer answer in Korean.\n" +
-        "For tool use: If you encounter ServiceKey, or case-insensitive equivalent tool parameter, leave it empty.",
+    content: "You are an AI agent that helps people to use Korean government's public API. Prefer answer in Korean.",
 };
 
 interface PublicApiMcpHostOptions {
@@ -31,8 +29,8 @@ export class PublicApiMcpHost {
     });
 
     constructor(options: PublicApiMcpHostOptions) {
-        if (env.PUBLIC_API_AUTH_KEY === undefined) {
-            throw new Error("public API authentication key must be provided");
+        if (env.PUBLIC_API_AUTH_KEY === undefined || env.WEATHER_FORECAST_AUTH_KEY === undefined) {
+            throw new Error("authentication keys must be provided");
         }
 
         const transport = new StdioClientTransport({
@@ -40,6 +38,7 @@ export class PublicApiMcpHost {
             args: ["dist/mcp/server/index.js"],
             env: {
                 PUBLIC_API_AUTH_KEY: env.PUBLIC_API_AUTH_KEY,
+                WEATHER_FORECAST_AUTH_KEY: env.WEATHER_FORECAST_AUTH_KEY,
             },
         });
 
@@ -98,23 +97,59 @@ export class PublicApiMcpHost {
 
         this._logger.debug("requesting chat completion with following messages:", messages);
 
-        const response = await this._ollama.chat({
-            model: this._options.model,
-            messages: messages,
-            tools: this._tools,
-            stream: true,
-            think: false,
-        });
+        while (true) {
+            const response = await this._ollama.chat({
+                model: this._options.model,
+                messages: messages,
+                tools: this._tools,
+                stream: true,
+            });
 
-        for await (const chunk of response) {
-            if (chunk.message.tool_calls) {
-                const toolResult = await this.callTools(chunk.message.tool_calls);
-                yield* this.requestChat(messages.concat(toolResult));
+            let thinking = "";
+            let content = "";
+            let isThinking = false;
 
-                return;
-            } else {
-                yield chunk.message.content;
+            const calls: ToolCall[] = [];
+
+            for await (const chunk of response) {
+                if (chunk.message.thinking) {
+                    thinking += chunk.message.thinking;
+
+                    if (!isThinking) {
+                        isThinking = true;
+                        yield "Thinking: ";
+                    }
+
+                    yield chunk.message.thinking;
+                }
+
+                if (chunk.message.content) {
+                    content += chunk.message.content;
+
+                    if (isThinking) {
+                        isThinking = false;
+                        yield "\n";
+                    }
+
+                    yield chunk.message.content;
+                }
+
+                if (chunk.message.tool_calls?.length) {
+                    this._logger.debug("tool call: ", chunk.message.tool_calls);
+                    calls.push(...chunk.message.tool_calls);
+                }
             }
+
+            if (thinking || content || calls.length > 0) {
+                messages.push({ role: "assistant", thinking, content, tool_calls: calls });
+            }
+
+            if (calls.length == 0) {
+                break;
+            }
+
+            const result = await this.callTools(calls);
+            messages = messages.concat(result);
         }
     }
 

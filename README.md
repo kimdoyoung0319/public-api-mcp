@@ -30,10 +30,12 @@ ps aux | grep ollama | grep -v grep
 Ollama 실행 및 사용할 모델의 준비가 끝났다면, 다음을 이용해 MCP 호스트를 실행할 수 있습니다.
 
 ```
-PUBLIC_API_AUTH_KEY={your_authentication_key} npm run start
+export WEATHER_FORECAST_AUTH_KEY={your_weather_forecast_auth_key}
+export PUBLIC_API_AUTH_KEY={your_public_api_auth_key}
+WEATHER_FORECAST_AUTH_KEY={your_authentication_key} npm run start
 ```
 
-`your_authentication_key`에는 [공공데이터포털](http://www.data.go.kr)에서 발급받은 인증 키를 입력해야 하며, 해당 인증 키를 발급받은 계정은 반드시 필요한 API에 대한 사용신청과 승인이 되어있어햐 합니다.
+`your_weather_forecast_auth_key`에는 [기상청 API허브](https://apihub.kma.go.kr)에서 발급받은 인증 키를, `your_public_api_auth_key`에는 [공공데이터포털](http://www.data.go.kr)에서 발급받은 인증 키를 입력해야 하며, 해당 인증 키를 발급받은 계정은 반드시 필요한 API에 대한 사용신청과 승인이 되어있어햐 합니다.
 
 ### 디렉터리 구조
 

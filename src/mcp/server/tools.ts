@@ -2,6 +2,7 @@ import { z, ZodRawShape } from "zod";
 import { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { env } from "node:process";
+import { EnvError, McpServerError } from "../error.js";
 
 interface ToolConfig {
     title?: string;
@@ -36,14 +37,14 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
             },
         },
         callback: async function (args, extra) {
-            if (env.WEATHER_FORECAST_AUTH_KEY === undefined) {
-                throw new Error("internal server error");
+            if (env.PUBLIC_API_AUTH_KEY === undefined) {
+                throw new EnvError("PUBLIC_API_AUTH_KEY");
             }
 
             const region = typeof args.region === "string" ? args.region : args.region.toString();
 
             const params = new URLSearchParams({
-                authKey: env.WEATHER_FORECAST_AUTH_KEY,
+                ServiceKey: env.PUBLIC_API_AUTH_KEY,
                 pageNo: "1",
                 numOfRows: "10",
                 dataType: "JSON",
@@ -51,8 +52,9 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
             });
 
             const url =
-                "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstMsgService/getWthrSituation?" +
-                `${params.toString()}`;
+                "http://apis.data.go.kr/1360000/VilageFcstMsgService/getWthrSituation" + `?${params.toString()}`;
+
+            console.error(url);
 
             try {
                 const response = await fetch(url, { method: "GET" });
@@ -68,7 +70,7 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
                     ],
                 };
             } catch {
-                throw new Error("internal server error");
+                throw new McpServerError();
             }
         },
     },

@@ -1,8 +1,10 @@
-import { Ollama, ToolCall, Message, Tool as OllamaTool, AbortableAsyncIterator, ChatResponse } from "ollama";
+import { Ollama, Tool } from "ollama";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { env } from "node:process";
 import { Logger } from "@origranot/ts-logger";
+import { EnvError } from "./error.js";
+import { Message, ToolCall, ChatResponse } from "../types.js";
 
 const SYSTEM_PROMPT: Message = {
     role: "system",
@@ -11,9 +13,7 @@ const SYSTEM_PROMPT: Message = {
 
 interface PublicApiMcpHostOptions {
     /**
-     * Which model does the host use?
-     *
-     * Note: This is the exact string that can be found by `ollama list`.
+     * MCP 호스트가 사용할 모델의 `ollama list` 결과의 `name` 필드에 나타나는 이름.
      */
     model: string;
 }
@@ -21,16 +21,17 @@ interface PublicApiMcpHostOptions {
 export class PublicApiMcpHost {
     private _ollama = new Ollama();
     private _options: PublicApiMcpHostOptions;
-    private _tools: OllamaTool[] | undefined;
+    private _tools: Tool[] | undefined;
     private _logger: Logger;
+
     private _client = new Client({
         name: "public-api-mcp-client",
         version: "1.0.0",
     });
 
     constructor(options: PublicApiMcpHostOptions) {
-        if (env.PUBLIC_API_AUTH_KEY === undefined || env.WEATHER_FORECAST_AUTH_KEY === undefined) {
-            throw new Error("authentication keys must be provided");
+        if (env.PUBLIC_API_AUTH_KEY === undefined) {
+            throw new EnvError("PUBLIC_API_AUTH_KEY");
         }
 
         const transport = new StdioClientTransport({
@@ -38,7 +39,6 @@ export class PublicApiMcpHost {
             args: ["dist/mcp/server/index.js"],
             env: {
                 PUBLIC_API_AUTH_KEY: env.PUBLIC_API_AUTH_KEY,
-                WEATHER_FORECAST_AUTH_KEY: env.WEATHER_FORECAST_AUTH_KEY,
             },
         });
 
@@ -49,6 +49,11 @@ export class PublicApiMcpHost {
         this.fetchTools();
     }
 
+    /**
+     * MCP 서버에서 툴 목록을 받아오는 함수.
+     *
+     * @modifies {this._tools} 현재 MCP 호스트 객체의 툴 목록.
+     */
     private async fetchTools() {
         const response = await this._client.listTools();
 
@@ -65,21 +70,27 @@ export class PublicApiMcpHost {
             },
         }));
 
-        this._logger.debug("fetched list of tools:", this._tools);
+        this._logger.debug("호스트 사용 가능 툴 목록: ", this._tools);
     }
 
+    /**
+     * 툴 호출의 목록을 받아 호출 결과를 반환하는 함수.
+     *
+     * @param calls 툴 호출 목록.
+     * @returns 툴 호출 순서와 일치하는 결과 메세지 목록.
+     */
     private async callTools(calls: ToolCall[]): Promise<Message[]> {
         const messages = [];
 
         for (const call of calls) {
-            this._logger.debug("making tool call:", call);
+            this._logger.debug("툴 호출: ", call);
 
             const response = await this._client.callTool({
                 name: call.function.name,
                 arguments: call.function.arguments,
             });
 
-            this._logger.debug("MCP server response:", response);
+            this._logger.debug("MCP 서버 응답:", response);
 
             messages.push({
                 role: "tool",
@@ -90,14 +101,22 @@ export class PublicApiMcpHost {
         return messages;
     }
 
-    private async *requestChat(messages: Message[]): AsyncGenerator<string> {
+    /**
+     * 컨텍스트 및 유저 프롬프트를 받아 시스템 프롬프트와 함께 응답을 생성하는 함수.
+     *
+     * @param messages 유저 프롬프트와 컨텍스트를 포함하는 메세지의 목록.
+     * @returns 생성된 응답의 스트림.
+     */
+    async *chat(messages: Message[]): AsyncGenerator<ChatResponse> {
+        messages = [SYSTEM_PROMPT, ...messages];
+
         if (this._tools === undefined) {
             this.fetchTools();
         }
 
-        this._logger.debug("requesting chat completion with following messages:", messages);
+        const calls: ToolCall[] = [];
 
-        while (true) {
+        do {
             const response = await this._ollama.chat({
                 model: this._options.model,
                 messages: messages,
@@ -105,65 +124,48 @@ export class PublicApiMcpHost {
                 stream: true,
             });
 
-            let thinking = "";
-            let content = "";
-            let isThinking = false;
-
-            const calls: ToolCall[] = [];
+            calls.length = 0;
 
             for await (const chunk of response) {
-                if (chunk.message.thinking) {
-                    thinking += chunk.message.thinking;
-
-                    if (!isThinking) {
-                        isThinking = true;
-                        yield "Thinking: ";
-                    }
-
-                    yield chunk.message.thinking;
-                }
-
-                if (chunk.message.content) {
-                    content += chunk.message.content;
-
-                    if (isThinking) {
-                        isThinking = false;
-                        yield "\n";
-                    }
-
-                    yield chunk.message.content;
-                }
-
                 if (chunk.message.tool_calls?.length) {
-                    this._logger.debug("tool call: ", chunk.message.tool_calls);
                     calls.push(...chunk.message.tool_calls);
                 }
+
+                yield chunk;
             }
 
-            if (thinking || content || calls.length > 0) {
-                messages.push({ role: "assistant", thinking, content, tool_calls: calls });
+            if (calls.length) {
+                const result = await this.callTools(calls);
+                messages.push(...result);
+            }
+        } while (calls.length);
+    }
+
+    /**
+     * 현재 MCP 호스트가 작동하는지 확인하는 함수.
+     *
+     * @returns 현재 MCP 호스트의 정상 작동 여부.
+     */
+    async check(): Promise<boolean> {
+        try {
+            const ping = await this._client.ping();
+
+            if (this._ollama.ps() === undefined || this._tools === undefined || ping === undefined) {
+                return false;
             }
 
-            if (calls.length == 0) {
-                break;
-            }
-
-            const result = await this.callTools(calls);
-            messages = messages.concat(result);
+            return true;
+        } catch {
+            return false;
         }
     }
 
-    async *chat(content: string): AsyncGenerator<string> {
-        const messages = [
-            SYSTEM_PROMPT,
-            {
-                role: "user",
-                content: content,
-            },
-        ];
-
-        // TODO: Add context saving capability.
-
-        yield* this.requestChat(messages);
+    /**
+     * 현재 MCP 호스트가 사용중인 모델을 반환하는 함수.
+     *
+     * @returns 현재 MCP 호스트가 사용중인 모델.
+     */
+    model(): string {
+        return this._options.model;
     }
 }

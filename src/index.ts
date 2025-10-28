@@ -1,34 +1,44 @@
 import express from "express";
-import { Request, Response } from "express";
-import { v4 as uuidv4 } from "uuid";
 import { PublicApiMcpHost } from "./mcp/host.js";
+import { messageSchema } from "./types.js";
+import z from "zod";
 
 const app = express();
 const port = 3000;
-const host = new PublicApiMcpHost({
-    model: "gpt-oss:20b-cloud",
-});
+const host = new PublicApiMcpHost({ model: "gpt-oss:20b-cloud" });
 
-app.use(express.text());
+app.use(express.json());
 
-app.post("/", (request, response) => {
-    const uuid = uuidv4();
-    response.redirect(307, `/chat/${uuid}`);
-});
+app.post("/chat", async (request, response) => {
+    if (request.body.messages === undefined || z.array(messageSchema).safeParse(request.body.messages)) {
+        response.status(400).send("요청 형식 오류");
+    }
 
-// TODO: Implement another callback for GET request.
-app.get("/chat/:uuid", handler);
-app.post("/chat/:uuid", handler);
+    response.setHeader("Content-Type", "application/json");
 
-app.listen(port);
-
-async function handler(request: Request, response: Response) {
-    const uuid = request.params.uuid;
-    const replies = host.chat(request.body);
-
-    for await (const reply of replies) {
-        response.write(reply);
+    for await (const chunk of host.chat(request.body.messages)) {
+        response.write(`${JSON.stringify(chunk)}\n`);
     }
 
     response.end();
-}
+});
+
+app.get("/health", async (_, response) => {
+    const healthy = await host.check();
+
+    if (host === undefined || !healthy) {
+        response.json({ status: "error" });
+        return;
+    }
+
+    const date = new Date();
+
+    response.json({
+        status: "ok",
+        uptime: process.uptime(),
+        model: host.model(),
+        timestamp: date.toISOString(),
+    });
+});
+
+app.listen(port);

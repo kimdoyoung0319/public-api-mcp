@@ -6,7 +6,7 @@
 
 해당 서버를 구동하기 위해서는 다음이 필요합니다.
 
--   [Ollama](https://ollama.com) 및 `gpt-oss:20b` 모델
+-   [Ollama](https://ollama.com) 및 `gpt-oss:20b-cloud` 모델
 
     -   `src/index.ts`에서 `PublicApiMcpHost` 클래스 생성자의 `models` 인자를 수정하여 다른 모델을 사용할 수도 있습니다.
     -   현재 설치된 모델 목록은 `ollama list`로 확인할 수 있습니다.
@@ -30,12 +30,18 @@ ps aux | grep ollama | grep -v grep
 Ollama 실행 및 사용할 모델의 준비가 끝났다면, 다음을 이용해 MCP 호스트를 실행할 수 있습니다.
 
 ```
-export WEATHER_FORECAST_AUTH_KEY={your_weather_forecast_auth_key}
 export PUBLIC_API_AUTH_KEY={your_public_api_auth_key}
 npm run start
 ```
 
-`your_weather_forecast_auth_key`에는 [기상청 API허브](https://apihub.kma.go.kr)에서 발급받은 인증 키를, `your_public_api_auth_key`에는 [공공데이터포털](http://www.data.go.kr)에서 발급받은 인증 키를 입력해야 하며, 해당 인증 키를 발급받은 계정은 반드시 필요한 API에 대한 사용신청과 승인이 되어있어햐 합니다.
+`your_public_api_auth_key`에는 [공공데이터포털](http://www.data.go.kr)에서 발급받은 인증 키를 입력해야 하며, 해당 인증 키를 발급받은 계정은 반드시 필요한 API에 대한 사용신청과 승인이 되어있어햐 합니다.
+
+#### 현재 사용중인 API 목록
+
+만약 새 계정을 활용하여 테스트를 진행할 경우, 다음 API에 대한 활용신청을 먼저 진행해 주세요.
+
+-   [기상청 동네예보 통보문 조회서비스](https://www.data.go.kr/data/15058629/openapi.do)
+-
 
 ### 디렉터리 구조
 
@@ -75,29 +81,25 @@ npm run start
 ### API 명세
 
 `root`는 전체 서비스의 루트 URL입니다. 로컬에서 테스트하는 경우, 3000번 포트를 사용하므로 `http://localhost:3000`를
-사용합니다. `uuid`는 해당 대화 세션에 대한 UUID (Universally Unique IDentifier)입니다.
-
--   `POST {root}`
--   `GET {root}`
-
--   `GET {root}/chat`
-
-    -   새로운 대화 세션을 만들고, 해당 채팅 세션 URL로 리다이렉트합니다.
+사용합니다. `uuid`는 해당 대화 세션에 대한 UUID입니다.
 
 -   `POST {root}/chat`
 
-    -   새로운 대화 세션을 만들고, 해당 채팅 세션 URL로 리다이렉트하며, 모델에 응답 생성을 요청합니다.
+    -   MCP 호스트에 대화 응답 생성을 요청합니다.
+    -   요청 본문은 Ollama `ChatRequest` 타입의 JSON 데이터입니다.
+    -   `ChatRequest` 타입의 속성 중 `messages`를 제외한 나머지 속성은 무시됩니다.
+    -   Ollama `ChatResponse` 타입의 JSON 데이터 스트림을 응답으로 반환합니다.
 
--   `GET {root}/chat/{uuid}`
+-   `GET {root}/health`
 
-    -   해당 대화 세션의 대화 내역을 반환합니다.
-
--   `POST {root}/chat/{uuid}`
-
-    -   해당 대화 세션의 맥락(context)에서 모델에 응답 생성을 요청합니다.
+    -   MCP 호스트의 상태 체크 API입니다.
+    -   `src/types.ts`의 `HealthResponse` 타입의 JSON 데이터를 응답으로 반환합니다.
 
 ### TODO
 
--   REST API 요청/응답 스키마 정의
--   Ollama 로컬 모델이 아닌 원격 클라우드 모델을 이용해 응답 생성이 가능한지 테스트
--   다른 공공API 엔트리도 활용 가능하도록 확장
+-   [ ] REST API 요청/응답 스키마 정의
+-   [ ] 다른 API 구현
+-   [ ] 어플리케이션 서버와 연동하여 컨텍스트 저장 기능 구현
+-   [x] Ollama 로컬 모델이 아닌 원격 클라우드 모델을 이용해 응답 생성이 가능한지 테스트
+-   [ ] 다른 공공API 엔트리도 활용 가능하도록 확장
+-   [ ] 공공데이터포털 API 엔드포인트 사용하도록 수정

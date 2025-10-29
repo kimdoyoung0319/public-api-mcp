@@ -5,6 +5,10 @@
         "outDir": "./dist",
         "module": "nodenext",
         "target": "esnext",
+        "declaration": true,
+        "emitDeclarationOnly": false,
+        "esModuleInterop": true,
+        "moduleResolution": "node",
         "types": ["jest", "node"],
         "strict": true
     },

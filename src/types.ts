@@ -17,7 +17,8 @@ export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
 /* 아래 스키마 및 타입들은 모두 Ollama 인터페이스에 대응됩니다. Zod 3는 인터페이스에서 스키마를 정의하는 것을 지원하지
  * 않기 때문에, 필요한 인터페이스에 대해서만 일단 직접 스키마 및 타입을 작성하였습니다. 이후 코드 작성시, Ollama
- * 타입과의 충돌 방지를 위해 타입을 Ollama에서 임포트하기보다는 현재 파일에서 임포트해주세요. */
+ * 타입과의 충돌 방지를 위해 타입을 Ollama에서 임포트하기보다는 현재 파일에서 임포트해주세요. 대부분의 경우, Ollama
+ * API와 호환 가능합니다. */
 
 /** Ollama `ToolCall` 타입에 해당하는 스키마. */
 export const toolCallSchema = z.object({

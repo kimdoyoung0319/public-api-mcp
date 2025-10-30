@@ -1,5 +1,9 @@
 import z from "zod";
 
+export const fooSchema = z.object({});
+
+export type Foo = z.infer<typeof fooSchema>;
+
 /** MCP 호스트 상태 체크 API의 응답 스키마. */
 export const healthResponseSchema = z.object({
     /** 현재 MCP 호스트의 상태. */

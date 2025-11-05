@@ -1,10 +1,11 @@
 import { Ollama, Tool } from "ollama";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { ContentBlock, CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { logger } from "../utils.js";
-import { EnvError } from "./error.js";
+import { EnvError } from "../error.js";
 import { Message, ToolCall, ChatResponse } from "../types.js";
-import 'dotenv/config';
+import "dotenv/config";
 
 const SYSTEM_PROMPT: Message = {
     role: "system",
@@ -71,6 +72,21 @@ export class PublicApiMcpHost {
         logger.debug("호스트 사용 가능 툴 목록: ", this._tools);
     }
 
+    private extractToolResult(contents: ContentBlock[]): Message[] {
+        const result: Message[] = [];
+
+        for (const content of contents) {
+            if (content.type === "text") {
+                result.push({
+                    role: "tool",
+                    content: content.text,
+                });
+            }
+        }
+
+        return result;
+    }
+
     /**
      * 툴 호출의 목록을 받아 호출 결과를 반환하는 함수.
      *
@@ -90,10 +106,15 @@ export class PublicApiMcpHost {
 
             logger.debug("MCP 서버 응답:", response);
 
-            messages.push({
-                role: "tool",
-                content: JSON.stringify(response.content),
-            });
+            if (response.structuredContent) {
+                messages.push({
+                    role: "tool",
+                    content: JSON.stringify(response.structuredContent),
+                });
+            } else {
+                const results = this.extractToolResult(response.content as ContentBlock[]);
+                messages.push(...results);
+            }
         }
 
         return messages;
@@ -115,6 +136,8 @@ export class PublicApiMcpHost {
         const calls: ToolCall[] = [];
 
         do {
+            logger.debug("Ollama에 다음의 메세지와 함께 chat 요청: ", messages);
+
             const response = await this._ollama.chat({
                 model: this._options.model,
                 messages: messages,
@@ -127,10 +150,13 @@ export class PublicApiMcpHost {
             for await (const chunk of response) {
                 if (chunk.message.tool_calls?.length) {
                     calls.push(...chunk.message.tool_calls);
+                    messages.push(chunk.message);
                 }
 
                 yield chunk;
             }
+
+            logger.debug("Ollama 툴 요청 목록: ", calls);
 
             if (calls.length) {
                 const result = await this.callTools(calls);

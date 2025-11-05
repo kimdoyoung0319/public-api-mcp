@@ -1,11 +1,9 @@
 import { Ollama, Tool } from "ollama";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { ContentBlock, CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import { ContentBlock } from "@modelcontextprotocol/sdk/types.js";
 import { logger } from "../utils.js";
-import { EnvError } from "../error.js";
 import { Message, ToolCall, ChatResponse } from "../types.js";
-import "dotenv/config";
 
 const SYSTEM_PROMPT: Message = {
     role: "system",
@@ -30,16 +28,9 @@ export class PublicApiMcpHost {
     });
 
     constructor(options: PublicApiMcpHostOptions) {
-        if (process.env.PUBLIC_API_AUTH_KEY === undefined) {
-            throw new EnvError("PUBLIC_API_AUTH_KEY");
-        }
-
         const transport = new StdioClientTransport({
             command: "node",
             args: ["dist/mcp/server/index.js"],
-            env: {
-                PUBLIC_API_AUTH_KEY: process.env.PUBLIC_API_AUTH_KEY,
-            },
         });
 
         this._client.connect(transport);
@@ -72,19 +63,59 @@ export class PublicApiMcpHost {
         logger.debug("호스트 사용 가능 툴 목록: ", this._tools);
     }
 
-    private extractToolResult(contents: ContentBlock[]): Message[] {
-        const result: Message[] = [];
+    /**
+     * 툴 호출 결과로를 텍스트 메세지로 변환하는 함수.
+     *
+     * @param contents 툴 호출 결과의 텍스트 `ContentBlock` 배열.
+     * @returns 변환된 메세지의.
+     */
+    private extractToolResult(contents: ContentBlock[]): Message {
+        let result = "";
 
         for (const content of contents) {
             if (content.type === "text") {
-                result.push({
-                    role: "tool",
-                    content: content.text,
-                });
+                result += " " + content.text;
             }
         }
 
-        return result;
+        return {
+            role: "tool",
+            content: result,
+        };
+    }
+
+    /**
+     * 툴 호출 하나를 처리하는 함수.
+     *
+     * @param call 툴 호출.
+     * @returns 툴 호출 결과 메세지.
+     */
+    private async callTool(call: ToolCall): Promise<Message> {
+        try {
+            logger.debug("툴 호출: ", call);
+
+            const response = await this._client.callTool({
+                name: call.function.name,
+                arguments: call.function.arguments,
+            });
+
+            if (response.structuredContent) {
+                return {
+                    role: "tool",
+                    content: JSON.stringify(response.structuredContent),
+                };
+            } else {
+                return this.extractToolResult(response.content as ContentBlock[]);
+            }
+        } catch (error) {
+            return {
+                role: "tool",
+                content: JSON.stringify({
+                    isError: true,
+                    message: JSON.stringify(error),
+                }),
+            };
+        }
     }
 
     /**
@@ -97,24 +128,8 @@ export class PublicApiMcpHost {
         const messages = [];
 
         for (const call of calls) {
-            logger.debug("툴 호출: ", call);
-
-            const response = await this._client.callTool({
-                name: call.function.name,
-                arguments: call.function.arguments,
-            });
-
-            logger.debug("MCP 서버 응답:", response);
-
-            if (response.structuredContent) {
-                messages.push({
-                    role: "tool",
-                    content: JSON.stringify(response.structuredContent),
-                });
-            } else {
-                const results = this.extractToolResult(response.content as ContentBlock[]);
-                messages.push(...results);
-            }
+            const result = await this.callTool(call);
+            messages.push(result);
         }
 
         return messages;
@@ -136,7 +151,7 @@ export class PublicApiMcpHost {
         const calls: ToolCall[] = [];
 
         do {
-            logger.debug("Ollama에 다음의 메세지와 함께 chat 요청: ", messages);
+            logger.debug("Ollama에 다음의 메세지와 함께 응답 생성 요청: ", messages);
 
             const response = await this._ollama.chat({
                 model: this._options.model,

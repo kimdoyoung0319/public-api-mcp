@@ -27,10 +27,16 @@ ps aux | grep ollama | grep -v grep
 
 만약 해당 커맨드 실행 결과로 Ollama 프로세스가 확인되지 않는다면, `ollama serve`로 Ollama 프로세스를 실행해 주세요.
 
-Ollama 실행 및 사용할 모델의 준비가 끝났다면, 다음을 이용해 MCP 호스트를 실행할 수 있습니다.
+이후에는 `.env` 예시 파일을 복사한 후 `change-me`를 실제 API 인증키로 변경해 주세요.
 
 ```
-export PUBLIC_API_AUTH_KEY={your_public_api_auth_key}
+cp .env.example .env
+sed -i '' 's/change-me/{your-api-key}/g' .env
+```
+
+Ollama 실행 및 `.env` 파일의 준비가 끝났다면, 다음을 이용해 MCP 호스트를 실행할 수 있습니다.
+
+```
 npm run start
 ```
 
@@ -87,7 +93,7 @@ npm run start
 
     -   MCP 호스트에 대화 응답 생성을 요청합니다.
     -   요청 본문은 Ollama `ChatRequest` 타입의 JSON 데이터입니다.
-    -   `ChatRequest` 타입의 속성 중 `messages`를 제외한 나머지 속성은 무시됩니다.
+    -   `ChatRequest` 타입의 속성 중 `messages`를 제외한 나머지 속성은 무시되지만, `model` 필드는 필수로 포함해야 합니다.
     -   Ollama `ChatResponse` 타입의 JSON 데이터 스트림을 응답으로 반환합니다.
 
 -   `GET {root}/health`

@@ -2,9 +2,10 @@ import express from "express";
 import { PublicApiMcpHost } from "./mcp/host.js";
 import { chatRequestSchema } from "./types.js";
 import { logger } from "./utils.js";
+import "dotenv/config";
 
 const app = express();
-const port = 3000;
+const port = parseInt(process.env.PORT ?? "3000");
 const host = new PublicApiMcpHost({ model: "gpt-oss:20b-cloud" });
 
 app.use(express.json());

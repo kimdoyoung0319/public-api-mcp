@@ -10,8 +10,6 @@ export interface PublicApiMcpServerOptions extends ServerOptions {
 
 /** 공공API를 이용한 MCP 서버 클래스. */
 export class PublicApiMcpServer extends McpServer {
-    private _authKey: string;
-
     /**
      * 공공API를 이용한 MCP 서버의 생성자.
      *
@@ -23,10 +21,8 @@ export class PublicApiMcpServer extends McpServer {
                 name: "public-api-mcp-server",
                 version: "1.0.0",
             },
-            options
+            options,
         );
-
-        this._authKey = options.publicApiAuthKey;
 
         for (const tool of PUBLIC_API_TOOLS) {
             super.registerTool(tool.name, tool.config, tool.callback);

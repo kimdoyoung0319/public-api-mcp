@@ -27,7 +27,8 @@ ps aux | grep ollama | grep -v grep
 
 만약 해당 커맨드 실행 결과로 Ollama 프로세스가 확인되지 않는다면, `ollama serve`로 Ollama 프로세스를 실행해 주세요.
 
-이후에는 `.env` 예시 파일을 복사한 후 `change-me`를 실제 API 인증키로 변경해 주세요.
+이후에는 `.env` 예시 파일을 복사한 후 `change-me`를 실제 API 인증키로 변경해 주세요. 이외에도 서버 포트(`PORT`) 설정과 로그 레벨(`LOG_LEVEL`) 설정을 .env 파일로 할 수 있습니다.
+가능한 로그 레벨은 `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL` 중 하나입니다. 설정한 로그 레벨 이하의 로그는 무시됩니다.
 
 ```
 cp .env.example .env

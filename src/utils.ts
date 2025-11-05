@@ -1,29 +1,42 @@
-import { Logger, ConsoleTransportOptions, Transport, TransportPayload } from "@origranot/ts-logger";
+import { Logger, ConsoleTransportOptions, Transport, TransportPayload, LOG_LEVEL } from "@origranot/ts-logger";
+import { EnvFormatError } from "./error.js";
+import "dotenv/config";
 
 export class ConsoleErrTransport extends Transport {
-    private _options: ConsoleTransportOptions;
+    constructor(private readonly consoleOptions?: ConsoleTransportOptions) {
+        super(consoleOptions);
 
-    constructor(options?: ConsoleTransportOptions) {
-        super(options);
-
-        if (options !== undefined) {
-            this._options = options;
-        } else {
-            this._options = { fullFormat: true };
-        }
+        this.consoleOptions = consoleOptions || {};
+        this.consoleOptions.fullFormat = this.consoleOptions.fullFormat ?? true;
     }
 
-    handle(payload: TransportPayload) {
-        if (!this._options.fullFormat) {
-            payload.message = payload.message.split("\n")[0];
+    handle({ message }: TransportPayload): void {
+        if (!this.consoleOptions?.fullFormat) {
+            message = message.split("\n")[0];
         }
 
-        console.error(payload.message);
+        console.error(message);
     }
 }
 
-const transport = new ConsoleErrTransport();
+function parseLogLevel(): LOG_LEVEL | undefined {
+    if (!process.env.LOG_LEVEL) {
+        return undefined;
+    }
+
+    const upper = process.env.LOG_LEVEL.toUpperCase();
+
+    if (upper in LOG_LEVEL) {
+        return LOG_LEVEL[upper as keyof typeof LOG_LEVEL];
+    } else {
+        throw new EnvFormatError("LOG_LEVEL");
+    }
+}
+
+const transport = new ConsoleErrTransport({
+    threshold: parseLogLevel(),
+});
 
 export const logger = new Logger({
-    transports: [transport]
-})
+    transports: [transport],
+});

@@ -1,7 +1,7 @@
 import express from "express";
 import { PublicApiMcpHost } from "./mcp/host.js";
-import { chatRequestSchema, chatResponseSchema, messageSchema } from "./types.js";
-import z from "zod";
+import { chatRequestSchema } from "./types.js";
+import { logger } from "./utils.js";
 
 const app = express();
 const port = 3000;
@@ -10,6 +10,8 @@ const host = new PublicApiMcpHost({ model: "gpt-oss:20b-cloud" });
 app.use(express.json());
 
 app.post("/chat", async (request, response) => {
+    logger.debug("클라이언트 요청: ", request.body);
+
     const parsed = chatRequestSchema.safeParse(request.body);
 
     if (!parsed.success || parsed.data.messages === undefined) {

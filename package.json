@@ -14,6 +14,7 @@
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.17.4",
         "@origranot/ts-logger": "github:kimdoyoung0319/ts-logger#dist",
+        "dotenv": "^17.2.3",
         "express": "^5.1.0",
         "fast-xml-parser": "^5.2.5",
         "install": "^0.13.0",

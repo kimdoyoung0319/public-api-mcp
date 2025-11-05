@@ -3,6 +3,7 @@ import { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { env } from "node:process";
 import { EnvError, McpServerError } from "../error.js";
+import { logger } from "../../utils.js";
 
 interface ToolConfig {
     title?: string;
@@ -54,11 +55,15 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
             const url =
                 "http://apis.data.go.kr/1360000/VilageFcstMsgService/getWthrSituation" + `?${params.toString()}`;
 
-            console.error(url);
+            logger.debug("공공데이터포털 API 요청: ", url);
 
             try {
                 const response = await fetch(url, { method: "GET" });
+
+                logger.debug("공공데이터포털 API 응답: ", response);
+
                 const json = await response.json();
+
                 const forecast = json.response.body.items.item[0].wfSv1;
 
                 return {

@@ -1,10 +1,10 @@
 import { Ollama, Tool } from "ollama";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { env } from "node:process";
-import { Logger } from "@origranot/ts-logger";
+import { logger } from "../utils.js";
 import { EnvError } from "./error.js";
 import { Message, ToolCall, ChatResponse } from "../types.js";
+import 'dotenv/config';
 
 const SYSTEM_PROMPT: Message = {
     role: "system",
@@ -22,7 +22,6 @@ export class PublicApiMcpHost {
     private _ollama = new Ollama();
     private _options: PublicApiMcpHostOptions;
     private _tools: Tool[] | undefined;
-    private _logger: Logger;
 
     private _client = new Client({
         name: "public-api-mcp-client",
@@ -30,7 +29,7 @@ export class PublicApiMcpHost {
     });
 
     constructor(options: PublicApiMcpHostOptions) {
-        if (env.PUBLIC_API_AUTH_KEY === undefined) {
+        if (process.env.PUBLIC_API_AUTH_KEY === undefined) {
             throw new EnvError("PUBLIC_API_AUTH_KEY");
         }
 
@@ -38,13 +37,12 @@ export class PublicApiMcpHost {
             command: "node",
             args: ["dist/mcp/server/index.js"],
             env: {
-                PUBLIC_API_AUTH_KEY: env.PUBLIC_API_AUTH_KEY,
+                PUBLIC_API_AUTH_KEY: process.env.PUBLIC_API_AUTH_KEY,
             },
         });
 
         this._client.connect(transport);
         this._options = options;
-        this._logger = new Logger();
 
         this.fetchTools();
     }
@@ -70,7 +68,7 @@ export class PublicApiMcpHost {
             },
         }));
 
-        this._logger.debug("호스트 사용 가능 툴 목록: ", this._tools);
+        logger.debug("호스트 사용 가능 툴 목록: ", this._tools);
     }
 
     /**
@@ -83,14 +81,14 @@ export class PublicApiMcpHost {
         const messages = [];
 
         for (const call of calls) {
-            this._logger.debug("툴 호출: ", call);
+            logger.debug("툴 호출: ", call);
 
             const response = await this._client.callTool({
                 name: call.function.name,
                 arguments: call.function.arguments,
             });
 
-            this._logger.debug("MCP 서버 응답:", response);
+            logger.debug("MCP 서버 응답:", response);
 
             messages.push({
                 role: "tool",

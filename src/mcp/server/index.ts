@@ -14,3 +14,5 @@ const server = new PublicApiMcpServer({
 const transport = new StdioServerTransport();
 
 await server.connect(transport);
+
+

@@ -1,4 +1,4 @@
-import { ConsoleTransportOptions, Transport, TransportPayload } from "@origranot/ts-logger";
+import { Logger, ConsoleTransportOptions, Transport, TransportPayload } from "@origranot/ts-logger";
 
 export class ConsoleErrTransport extends Transport {
     private _options: ConsoleTransportOptions;
@@ -21,3 +21,9 @@ export class ConsoleErrTransport extends Transport {
         console.error(payload.message);
     }
 }
+
+const transport = new ConsoleErrTransport();
+
+export const logger = new Logger({
+    transports: [transport]
+})

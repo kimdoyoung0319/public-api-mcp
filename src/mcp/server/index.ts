@@ -1,16 +1,17 @@
 import { PublicApiMcpServer } from "./server.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { env } from "node:process";
 import { EnvError } from "../../error.js";
+import "dotenv/config";
 
-if (env.PUBLIC_API_AUTH_KEY === undefined) {
-    throw new EnvError("PUBLIC_API_AUTH_KEY");
+const ENV_REQUIRED = ["PUBLIC_API_AUTH_KEY", "KOREA_EXIMBANK_AUTH_KEY"];
+
+for (const env of ENV_REQUIRED) {
+    if (!process.env[env]) {
+        throw new EnvError(env);
+    }
 }
 
-const server = new PublicApiMcpServer({
-    publicApiAuthKey: env.PUBLIC_API_AUTH_KEY,
-});
-
+const server = new PublicApiMcpServer();
 const transport = new StdioServerTransport();
 
 await server.connect(transport);

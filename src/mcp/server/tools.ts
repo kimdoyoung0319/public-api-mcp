@@ -1,9 +1,9 @@
 import { z, ZodRawShape } from "zod";
-import { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import { ToolAnnotations, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { env } from "node:process";
 import { EnvError, McpServerError } from "../../error.js";
 import { logger } from "../../utils.js";
+import "dotenv/config";
 
 interface ToolConfig {
     title?: string;
@@ -19,6 +19,43 @@ export interface McpTool {
     callback: ToolCallback<ZodRawShape>;
 }
 
+/**
+ * 텍스트 형식의 API 응답을 `CallToolResult`로 변환하는 함수.
+ *
+ * @param text 변환할 텍스트 형식의 API 응답.
+ * @returns 변환된 API 응답.
+ */
+function convertTextContent(text: string): CallToolResult {
+    return {
+        content: [
+            {
+                type: "text",
+                text: text,
+            },
+        ],
+    };
+}
+
+/**
+ * 구조화된 형식의 API 응답을 `CallToolResult`로 변환하는 함수.
+ *
+ * @param content 변환할 구조화된 형식의 API 응답.
+ * @returns 변환된 API 응답.
+ */
+function convertStructuredContent(content: any): CallToolResult {
+    return {
+        content: [
+            {
+                type: "text",
+                text: JSON.stringify(content),
+            },
+        ],
+        structuredContent: content,
+    };
+}
+
+// TODO: API 요청 실패시 예외 던지는게 아니라 에러 객체 반환하도록 수정
+// TODO: 타임아웃 구현
 export const PUBLIC_API_TOOLS: McpTool[] = [
     {
         name: "weatherForecast",
@@ -33,19 +70,19 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
                         "일기예보를 조회할 발표관서. " +
                             "기상청: 108, 수도권(서울): 109, 부산: 159, 대구: 143, 광주: 156, 전주: 146," +
                             "대전: 133, 청주: 131, 강원: 105, 제주: 184. " +
-                            "해당 목록에서 발표관서 코드를 찾을 수 없는 경우, 가장 가까운 위치의 코드 사용.",
+                            "해당 목록에서 발표관서 코드를 찾을 수 없는 경우, 가장 가까운 위치의 코드 사용."
                     ),
             },
         },
         callback: async (args, extra) => {
-            if (env.PUBLIC_API_AUTH_KEY === undefined) {
+            if (!process.env.PUBLIC_API_AUTH_KEY) {
                 throw new EnvError("PUBLIC_API_AUTH_KEY");
             }
 
             const region = typeof args.region === "string" ? args.region : args.region.toString();
 
             const params = new URLSearchParams({
-                ServiceKey: env.PUBLIC_API_AUTH_KEY,
+                ServiceKey: process.env.PUBLIC_API_AUTH_KEY,
                 pageNo: "1",
                 numOfRows: "10",
                 dataType: "JSON",
@@ -65,14 +102,7 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
                 const json = await response.json();
                 const forecast = json.response.body.items.item[0].wfSv1;
 
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: forecast,
-                        },
-                    ],
-                };
+                return convertTextContent(forecast);
             } catch {
                 throw new McpServerError();
             }
@@ -97,18 +127,19 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
             },
         },
         callback: async ({ date, kind }, extra) => {
-            if (env.PUBLIC_API_AUTH_KEY === undefined) {
+            if (!process.env.PUBLIC_API_AUTH_KEY) {
                 throw new EnvError("PUBLIC_API_AUTH_KEY");
             }
 
             const params = new URLSearchParams({
-                serviceKey: env.PUBLIC_API_AUTH_KEY,
+                serviceKey: process.env.PUBLIC_API_AUTH_KEY,
                 returnType: "json",
                 searchDate: date,
                 InformCode: kind,
             });
 
-            const url = `http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMinuDustFrcstDspth?${params.toString()}`;
+            const url =
+                "http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMinuDustFrcstDspth?" + params.toString();
 
             logger.debug("공공데이터포털 API 요청: ", url);
 
@@ -125,16 +156,83 @@ export const PUBLIC_API_TOOLS: McpTool[] = [
                     guideline: json.response.body.actionKnack,
                 };
 
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify(result),
-                        },
-                    ],
-                    structuredContent: result,
-                };
+                return convertStructuredContent(result);
             } catch {
+                throw new McpServerError();
+            }
+        },
+    },
+    {
+        name: "exchangeRate",
+        config: {
+            title: "한국수출입은행 현재환율 API",
+            description: "원화를 기준으로 한 타국 통화의 환율을 확인할 수 있는 API",
+            inputSchema: {
+                date: z
+                    .string()
+                    .describe(
+                        "환율 정보를 검색할 날짜로, 제공하지 않을 시 현재 날짜를 기준으로 검색됨. YYYYMMDD 형식으로, 비영업일의 데이터, 혹은 영업당일 11시 이전에 해당일의 데이터를 요청할 경우 null 값이 반환."
+                    ),
+            },
+            outputSchema: {
+                entries: z.array(
+                    z.object({
+                        currencyCode: z.string().describe("통화코드"),
+                        currencyName: z.string().describe("통화명"),
+                        telegraphicTransferBuy: z.string().describe("전신환(송금) 받으실때"),
+                        telegraphicTransferSell: z.string().describe("전신환(송금) 보내실때"),
+                        baseRate: z.string().describe("매매 기준율"),
+                    })
+                ),
+            },
+        },
+        callback: async ({ date }, extra) => {
+            const schema = z.array(
+                z.object({
+                    result: z.number(),
+                    cur_unit: z.string(),
+                    cur_nm: z.string(),
+                    ttb: z.string(),
+                    tts: z.string(),
+                    deal_bas_r: z.string(),
+                    bkpr: z.string(),
+                    yy_efee_r: z.string(),
+                    ten_dd_efee_r: z.string(),
+                    kftc_deal_bas_r: z.string(),
+                    kftc_bkpr: z.string(),
+                })
+            );
+
+            const params = new URLSearchParams({
+                authkey: process.env.KOREA_EXIMBANK_AUTH_KEY!,
+                searchdate: "20251105",
+                data: "AP01",
+            });
+
+            const url = "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON?" + params.toString();
+
+            console.log(url);
+
+            const body = await fetch(url, { method: "GET" }).then(async (res) => {
+                const json = await res.json();
+                return schema.safeParse(json);
+            });
+
+            if (body.success) {
+                const entries = [];
+
+                for (const entry of body.data) {
+                    entries.push({
+                        currencyCode: entry.cur_unit,
+                        currencyName: entry.cur_nm,
+                        telegraphicTransferBuy: entry.ttb,
+                        telegraphicTransferSell: entry.tts,
+                        baseRate: entry.deal_bas_r,
+                    });
+                }
+
+                return convertStructuredContent({ entries });
+            } else {
                 throw new McpServerError();
             }
         },
